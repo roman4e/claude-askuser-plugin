@@ -24,6 +24,7 @@ The script auto-selects the best method:
 
 | Condition | Method |
 |-----------|--------|
+| **Remote Control active** (`CLAUDE_CODE_REMOTE` truthy or `CLAUDE_CODE_REMOTE_SESSION_ID` set) | Returns `__USE_ASK_USER_QUESTION__` → use `AskUserQuestion` so the question is delivered to the user's remote device |
 | No display (`$DISPLAY` unset) | Returns `__USE_ASK_USER_QUESTION__` → use `AskUserQuestion` |
 | Display available + terminal **focused** | Returns `__USE_ASK_USER_QUESTION__` → use `AskUserQuestion` |
 | Display available + terminal **not focused** | Shows native `zenity` popup |

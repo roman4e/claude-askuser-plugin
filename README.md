@@ -92,9 +92,22 @@ fi
 
 | Умова | Метод |
 |-------|-------|
+| **Remote Control активний** (`CLAUDE_CODE_REMOTE` truthy або `CLAUDE_CODE_REMOTE_SESSION_ID` встановлений) | Fallback: `__USE_ASK_USER_QUESTION__` — питання передається на віддалений пристрій нативно |
 | Немає `$DISPLAY` | Fallback: `__USE_ASK_USER_QUESTION__` |
 | Дисплей є, термінал у фокусі | Fallback: `__USE_ASK_USER_QUESTION__` |
 | Дисплей є, термінал НЕ у фокусі | Нативне вікно `zenity` |
+
+### Remote Control bypass
+
+Коли Claude Code запущено з `--remote-control` / `--rc` (керування з телефона або десктоп-додатку), плагін **не перехоплює** ні питання, ні permission-промпти:
+
+- `scripts/ask.sh` одразу повертає `__USE_ASK_USER_QUESTION__` — Claude викликає вбудований `AskUserQuestion`, який Claude Code сам доставляє на віддалений пристрій.
+- `pre-tool-notify.sh` виходить з `exit 0` — Claude використовує стандартний permission-flow, який також системно передається на пристрій.
+
+Детекція через env vars що Claude Code експортує у дочірні процеси:
+
+- `CLAUDE_CODE_REMOTE` — truthy значення (`1`, `true`, `yes`, `on`)
+- `CLAUDE_CODE_REMOTE_SESSION_ID` — будь-яке непорожнє значення
 
 Для детекції правильного вікна термінала скрипт іде вверх по `/proc` від свого PID, шукає процес термінального емулятора (gnome-terminal, konsole, alacritty, kitty, wezterm, tilix, terminator, foot, rxvt, xterm), потім через `xdotool search --pid` отримує його X-вікна. Це коректно працює навіть коли користувач вже у іншій програмі на момент старту скрипта.
 
