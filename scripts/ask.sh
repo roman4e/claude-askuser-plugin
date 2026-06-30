@@ -17,6 +17,23 @@ QUESTION="${1:?Question required}"
 shift
 OPTIONS=("$@")
 
+# ── Remote Control bypass ─────────────────────────────────────────────────────
+# When Claude Code runs in Remote Control mode the question must be delivered to
+# the user's remote device (phone/desktop) via the native AskUserQuestion path.
+# Do NOT pop a local zenity dialog — the user is not at this machine.
+_is_truthy() {
+    case "${1:-}" in
+        1|true|TRUE|True|yes|YES|on|ON) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+if _is_truthy "${CLAUDE_CODE_REMOTE:-}" || [ -n "${CLAUDE_CODE_REMOTE_SESSION_ID:-}" ]; then
+    echo "__USE_ASK_USER_QUESTION__"
+    echo "$QUESTION"
+    printf '%s\n' "${OPTIONS[@]}"
+    exit 0
+fi
+
 # ── Ensure xdotool ────────────────────────────────────────────────────────────
 if ! command -v xdotool &>/dev/null; then
     if command -v apt-get &>/dev/null; then

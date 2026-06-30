@@ -1,0 +1,16 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "local",
+  "description": "Local marketplace hosting the ask-user plugin.",
+  "owner": {
+    "name": "tue"
+  },
+  "plugins": [
+    {
+      "name": "ask-user",
+      "description": "Present user choice dialogs using AskUserQuestion with buttons",
+      "source": "./",
+      "category": "productivity"
+    }
+  ]
+}
