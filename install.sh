@@ -69,6 +69,14 @@ cat > "$HOOK_SCRIPT" << 'HOOKEOF'
 
 set -euo pipefail
 
+# Remote Control bypass: when Claude Code runs in remote-control mode, the
+# permission prompt is delivered to the user's remote device natively. Do
+# nothing here and let the built-in flow handle it.
+case "${CLAUDE_CODE_REMOTE:-}" in
+    1|true|TRUE|True|yes|YES|on|ON) exit 0 ;;
+esac
+[ -n "${CLAUDE_CODE_REMOTE_SESSION_ID:-}" ] && exit 0
+
 INPUT=$(cat)
 
 TOOL_NAME=$(printf '%s' "$INPUT" | python3 -c "
