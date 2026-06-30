@@ -1,5 +1,8 @@
 {
   "name": "ask-user",
   "version": "1.0.0",
-  "description": "Present user choice dialogs using AskUserQuestion with buttons"
+  "description": "Present user choice dialogs using AskUserQuestion with buttons",
+  "author": {
+    "name": "tue"
+  }
 }
