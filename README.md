@@ -10,12 +10,15 @@
 .
 ├── .claude-plugin/
 │   └── plugin.json              # маніфест плагіна
+├── hooks/
+│   ├── hooks.json               # реєстрація PreToolUse-хука в плагіні
+│   └── pre-tool-notify.sh       # сам хук (Allow/Block zenity-попап)
 ├── scripts/
 │   └── ask.sh                   # діалог вибору (zenity або fallback)
 ├── skills/
 │   └── choice-dialog/
 │       └── SKILL.md             # інструкція для Claude як викликати ask.sh
-└── install.sh                   # реєстрація плагіна + установка хука
+└── install.sh                   # реєстрація плагіна + whitelist ask.sh
 ```
 
 ## Вимоги
@@ -50,11 +53,11 @@ bash install.sh
 Скрипт `install.sh`:
 
 1. Реєструє плагін у `~/.claude/plugins/installed_plugins.json` як `ask-user@local`, із посиланням на поточну директорію.
-2. Встановлює PreToolUse-хук у `~/.claude/hooks/pre-tool-notify.sh`.
-3. Оновлює `~/.claude/settings.json`:
-   - додає `Bash(<repo>/scripts/ask.sh *)` у `permissions.allow`
-   - реєструє хук на матчер `Bash|Edit|Write`
-   - вмикає плагін у `enabledPlugins`
+2. Додає `Bash(<repo>/scripts/ask.sh *)` у `permissions.allow`.
+3. Вмикає плагін у `enabledPlugins`.
+4. Якщо на машині є легасі-хук з попередніх версій (`~/.claude/hooks/pre-tool-notify.sh` + запис у `settings.json`) — видаляє.
+
+PreToolUse-хук **живе всередині плагіна** (`hooks/hooks.json` + `hooks/pre-tool-notify.sh`). Claude Code завантажує його разом із плагіном. Коли плагін вимкнено через `/plugin` — хук теж вимикається автоматично.
 
 Після установки перезапустіть Claude Code.
 
@@ -111,19 +114,16 @@ fi
 
 Для детекції правильного вікна термінала скрипт іде вверх по `/proc` від свого PID, шукає процес термінального емулятора (gnome-terminal, konsole, alacritty, kitty, wezterm, tilix, terminator, foot, rxvt, xterm), потім через `xdotool search --pid` отримує його X-вікна. Це коректно працює навіть коли користувач вже у іншій програмі на момент старту скрипта.
 
-## Видалення
+## Вимкнення та видалення
 
-Видалити вручну:
+**Тимчасово вимкнути** — команда `/plugin` у Claude Code, вибрати `ask-user@local` → Disable. Хук та `ask.sh` перестають діяти, бо є частиною плагіна.
+
+**Повне видалення** вручну:
 
 ```bash
-# Хук
-rm ~/.claude/hooks/pre-tool-notify.sh
-
 # З settings.json прибрати:
 #   - permissions.allow: запис "Bash(<repo>/scripts/ask.sh *)"
-#   - hooks.PreToolUse: матчер "Bash|Edit|Write" з командою pre-tool-notify.sh
 #   - enabledPlugins: "ask-user@local"
-
 # З installed_plugins.json прибрати "ask-user@local"
 ```
 

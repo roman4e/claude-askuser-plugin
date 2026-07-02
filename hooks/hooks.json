@@ -1,0 +1,16 @@
+{
+  "description": "Show zenity Allow/Block popup when Claude tries Bash/Edit/Write and the terminal is not focused. Bypassed when Claude Code Remote Control is active.",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ${CLAUDE_PLUGIN_ROOT}/hooks/pre-tool-notify.sh"
+          }
+        ]
+      }
+    ]
+  }
+}
