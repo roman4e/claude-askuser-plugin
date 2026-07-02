@@ -11,8 +11,9 @@
 ├── .claude-plugin/
 │   └── plugin.json              # маніфест плагіна
 ├── hooks/
-│   ├── hooks.json               # реєстрація PreToolUse-хука в плагіні
-│   └── pre-tool-notify.sh       # сам хук (Allow/Block zenity-попап)
+│   ├── hooks.json               # реєстрація PreToolUse + SessionStart хуків
+│   ├── pre-tool-notify.sh       # PreToolUse: Allow/Block zenity-попап
+│   └── migrate-legacy.sh        # SessionStart: чистить залишки від старих версій
 ├── scripts/
 │   └── ask.sh                   # діалог вибору (zenity або fallback)
 ├── skills/
@@ -60,6 +61,12 @@ bash install.sh
 PreToolUse-хук **живе всередині плагіна** (`hooks/hooks.json` + `hooks/pre-tool-notify.sh`). Claude Code завантажує його разом із плагіном. Коли плагін вимкнено через `/plugin` — хук теж вимикається автоматично.
 
 Після установки перезапустіть Claude Code.
+
+### Оновлення зі старих версій
+
+Плагін підтримує SessionStart-міграцію: `hooks/migrate-legacy.sh` перевіряє наявність залишків від попередніх версій (`~/.claude/hooks/pre-tool-notify.sh` та відповідний запис у `~/.claude/settings.json.hooks.PreToolUse`) і чистить їх. Fast-path: якщо чистити нема чого — вихід за ~5мс.
+
+Тобто якщо ти встановиш нову версію через marketplace/git pull і перезапустиш Claude Code, легасі приберуться самі на першій сесії. Ручний `install.sh` перезапускати не обов'язково.
 
 ## Перевірка
 

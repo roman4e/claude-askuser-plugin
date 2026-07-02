@@ -1,6 +1,18 @@
 {
-  "description": "Show zenity Allow/Block popup when Claude tries Bash/Edit/Write and the terminal is not focused. Bypassed when Claude Code Remote Control is active.",
+  "description": "Show zenity Allow/Block popup when Claude tries Bash/Edit/Write and the terminal is not focused. Bypassed when Claude Code Remote Control is active. Also runs a one-shot SessionStart migration that removes legacy system-level hook artifacts left by earlier plugin versions.",
   "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ${CLAUDE_PLUGIN_ROOT}/hooks/migrate-legacy.sh",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
     "PreToolUse": [
       {
         "matcher": "Bash|Edit|Write",
