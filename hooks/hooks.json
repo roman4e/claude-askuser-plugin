@@ -1,5 +1,5 @@
 {
-  "description": "Show zenity Allow/Block popup when Claude tries Bash/Edit/Write and the terminal is not focused. Bypassed when Claude Code Remote Control is active. Also runs a one-shot SessionStart migration that removes legacy system-level hook artifacts left by earlier plugin versions.",
+  "description": "Show an Allow/Block desktop notification (or zenity window) when Claude tries Bash/Edit/Write and the terminal is not focused. Bypassed when Claude Code Remote Control is active. Also runs a one-shot SessionStart migration that removes legacy system-level hook artifacts left by earlier plugin versions.",
   "hooks": {
     "SessionStart": [
       {
@@ -19,7 +19,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash ${CLAUDE_PLUGIN_ROOT}/hooks/pre-tool-notify.sh"
+            "command": "bash ${CLAUDE_PLUGIN_ROOT}/hooks/pre-tool-notify.sh",
+            "timeout": 310
           }
         ]
       }

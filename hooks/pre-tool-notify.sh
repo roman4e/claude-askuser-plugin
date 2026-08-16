@@ -1,9 +1,18 @@
 #!/usr/bin/env bash
-# PreToolUse hook: zenity confirmation when user is away from terminal.
+# PreToolUse hook: confirmation prompt when the user is away from the terminal.
 # Terminal focused → silent pass-through (built-in prompt handles approval).
-# User in another app → zenity popup with Allow/Block.
+# User in another app → notification (or zenity) with Allow/Block.
 
 set -euo pipefail
+
+HERE=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+ROOT=$(dirname "$HERE")
+# shellcheck source=../lib/config.sh
+. "$ROOT/lib/config.sh"
+# shellcheck source=../lib/ui.sh
+. "$ROOT/lib/ui.sh"
+# shellcheck source=../lib/focus.sh
+. "$ROOT/lib/focus.sh"
 
 # Remote Control bypass: when Claude Code runs in remote-control mode, the
 # permission prompt is delivered to the user's remote device natively. Do
@@ -42,50 +51,20 @@ except Exception:
     pass
 " 2>/dev/null || true)
 
-HAS_DISPLAY=0
-[ -n "${DISPLAY:-}" ] || [ -n "${WAYLAND_DISPLAY:-}" ] && HAS_DISPLAY=1
+focus_has_display || exit 0
+command -v xdotool &>/dev/null || exit 0
 
-if [ "$HAS_DISPLAY" -eq 0 ]; then exit 0; fi
-if ! command -v xdotool &>/dev/null || ! command -v zenity &>/dev/null; then exit 0; fi
-
-# Walk process tree to find terminal emulator
-_TERM_PID=""
-_pid=$$
-for _i in $(seq 1 12); do
-    _ppid=$(ps -o ppid= -p "$_pid" 2>/dev/null | tr -d ' ')
-    [ -z "$_ppid" ] || [ "$_ppid" = "0" ] || [ "$_ppid" = "1" ] && break
-    _comm=$(ps -o comm= -p "$_ppid" 2>/dev/null | head -c 40 | tr -d ' ')
-    case "${_comm}" in
-        gnome-terminal*|xterm|konsole|alacritty|kitty|wezterm|tilix|terminator|foot|rxvt*)
-            _TERM_PID="$_ppid"; break ;;
-    esac
-    _pid="$_ppid"
-done
-
-TERMINAL_FOCUSED=1
-if [ -n "$_TERM_PID" ]; then
-    GTERM_WINS=$(xdotool search --pid "$_TERM_PID" 2>/dev/null) || true
-    ACTIVE=$(xdotool getactivewindow 2>/dev/null) || true
-    if [ -n "$GTERM_WINS" ] && ! echo "$GTERM_WINS" | grep -qx "${ACTIVE:-__none__}"; then
-        TERMINAL_FOCUSED=0
-    fi
+focus_capture || exit 0
+if focus_terminal_focused; then
+    exit 0
 fi
 
-if [ "$TERMINAL_FOCUSED" -eq 1 ]; then exit 0; fi
+WPATH=$(pwd | rev | cut -d'/' -f1-2 | rev)
+TEXT="${TOOL_NAME}"
+[ -n "$TOOL_DETAIL" ] && TEXT="${TOOL_NAME}: ${TOOL_DETAIL}"
 
-_WPATH=$(pwd | rev | cut -d'/' -f1-2 | rev)
-_TEXT="${TOOL_NAME}"
-[ -n "$TOOL_DETAIL" ] && _TEXT="${TOOL_NAME}: ${TOOL_DETAIL}"
-
-if zenity --question \
-    --title="Claude Code | ${_WPATH}" \
-    --text="${_TEXT}" \
-    --ok-label="Allow" \
-    --cancel-label="Block" \
-    --width=460 \
-    2>/dev/null
-then
+if ui_confirm "Claude Code | ${WPATH}" "$TEXT"; then
     printf '{"decision":"approve"}\n'
 else
-    printf '{"decision":"block","reason":"Blocked by user via zenity (%s)"}\n' "$TOOL_NAME"
+    printf '{"decision":"block","reason":"Blocked by user via ask-user dialog (%s)"}\n' "$TOOL_NAME"
 fi

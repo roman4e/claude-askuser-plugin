@@ -1,0 +1,22 @@
+# ask-user configuration — copy to ~/.claude/ask-user.conf
+#
+# Every key can also be set as an environment variable, which wins over
+# this file. The file is grep-parsed, never sourced.
+
+# Dialog backend: notify (desktop notification with buttons) or zenity (window).
+# notify silently degrades to zenity when the notification daemon cannot show
+# action buttons.
+ASK_USER_UI=notify
+
+# Seconds to wait for an answer before giving up. 0 = wait forever.
+# On timeout the notification is closed instead of being left on screen.
+ASK_USER_TIMEOUT=300
+
+# Em spaces added on each side of a numbered button label. A bare digit
+# renders as a button too narrow to hit comfortably.
+ASK_USER_BTN_PAD=6
+
+# Longest option text still shown directly on a button. Anything longer gets a
+# numbered button and is listed in the notification body instead, because
+# daemons truncate button labels hard (cinnamon cuts to roughly one word).
+ASK_USER_MAX_LABEL=10
