@@ -14,13 +14,12 @@ ROOT=$(dirname "$HERE")
 # shellcheck source=../lib/focus.sh
 . "$ROOT/lib/focus.sh"
 
-# Remote Control bypass: when Claude Code runs in remote-control mode, the
-# permission prompt is delivered to the user's remote device natively. Do
-# nothing here and let the built-in flow handle it.
-case "${CLAUDE_CODE_REMOTE:-}" in
-    1|true|TRUE|True|yes|YES|on|ON) exit 0 ;;
-esac
-[ -n "${CLAUDE_CODE_REMOTE_SESSION_ID:-}" ] && exit 0
+# Switched off via /sysnotif — stay out of the way entirely.
+cfg_disabled && exit 0
+
+# Remote Control bypass: the session is driven from another device, so a dialog
+# on this desktop would go unseen. Let Claude Code's own flow deliver the prompt.
+cfg_is_remote && exit 0
 
 INPUT=$(cat)
 
@@ -55,7 +54,10 @@ focus_has_display || exit 0
 command -v xdotool &>/dev/null || exit 0
 
 focus_capture || exit 0
-if focus_terminal_focused; then
+# Window-level check only. Capture and check are microseconds apart here, so the
+# tab-title comparison in focus_terminal_focused would fire on Claude Code's own
+# title updates and report "away" while the user is looking right at it.
+if focus_window_focused; then
     exit 0
 fi
 
@@ -63,8 +65,13 @@ WPATH=$(pwd | rev | cut -d'/' -f1-2 | rev)
 TEXT="${TOOL_NAME}"
 [ -n "$TOOL_DETAIL" ] && TEXT="${TOOL_NAME}: ${TOOL_DETAIL}"
 
-if ui_confirm "Claude Code | ${WPATH}" "$TEXT"; then
-    printf '{"decision":"approve"}\n'
-else
-    printf '{"decision":"block","reason":"Blocked by user via ask-user dialog (%s)"}\n' "$TOOL_NAME"
-fi
+RC=0
+ui_confirm "Claude Code | ${WPATH}" "$TEXT" || RC=$?
+case "$RC" in
+    0) printf '{"decision":"approve"}\n' ;;
+    1) printf '{"decision":"block","reason":"Blocked by user via ask-user dialog (%s)"}\n' "$TOOL_NAME" ;;
+    # No answer reached us. Say nothing and let Claude Code ask the way it
+    # normally would — a hook that cannot reach the user has no business
+    # denying anything.
+    *) exit 0 ;;
+esac

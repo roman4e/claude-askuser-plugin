@@ -236,26 +236,40 @@ ui_gvariant_str() {
 
 # ── public API ────────────────────────────────────────────────────────────────
 
-# ui_confirm TITLE TEXT — permission prompt. Exit 0 allow, 1 block.
-# Anything other than an explicit Allow blocks: dismissal, timeout, or a
-# backend that failed to come up.
+# ui_confirm TITLE TEXT — permission prompt.
+#   0  the user pressed Allow
+#   1  the user pressed Block
+#   2  no answer: dismissed, timed out, or no backend could show the dialog
+#
+# Callers must treat 2 as "could not ask" and step aside, never as a denial.
+# Collapsing 2 into 1 is what let a suppressed notification — a locked screen or
+# do-not-disturb closes it instantly — block every single tool call.
 ui_confirm() {
     local title="$1" text="$2"
 
     if [ "$(ui_backend)" = "notify" ]; then
-        ui_dbus_ask "$title" "$(ui_escape "$text")" allow "Allow" block "Block" || return 1
-        [ "$UI_ANSWER" = "allow" ] && return 0
-        return 1
+        ui_dbus_ask "$title" "$(ui_escape "$text")" allow "Allow" block "Block" || return 2
+        case "$UI_ANSWER" in
+            allow) return 0 ;;
+            block) return 1 ;;
+            *) return 2 ;;
+        esac
     fi
 
-    command -v zenity >/dev/null 2>&1 || return 1
+    command -v zenity >/dev/null 2>&1 || return 2
+    local rc=0
     zenity --question \
         --title="$title" \
         --text="$text" \
         --ok-label="Allow" \
         --cancel-label="Block" \
         --width=460 \
-        2>/dev/null
+        2>/dev/null || rc=$?
+    case "$rc" in
+        0) return 0 ;;
+        1) return 1 ;;   # Cancel button, i.e. Block
+        *) return 2 ;;   # zenity could not start, was killed, or timed out
+    esac
 }
 
 # ui_choose TITLE QUESTION OPT... — sets UI_ANSWER to the chosen option,

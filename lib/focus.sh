@@ -80,7 +80,23 @@ focus_capture() {
     return 0
 }
 
-# Exit 0 when the captured Claude tab is still the one on screen.
+# Exit 0 when the active window belongs to our terminal, ignoring which tab is
+# visible. Use this when capture and check happen back to back — Claude Code
+# rewrites its window title continuously (spinner, counters), so comparing
+# titles microseconds apart reports "not focused" almost every time.
+focus_window_focused() {
+    focus_has_display || return 0
+    command -v xdotool >/dev/null 2>&1 || return 0
+    [ -n "$FOCUS_WINS" ] || return 0
+
+    local active
+    active=$(xdotool getactivewindow 2>/dev/null) || active=""
+    printf '%s\n' "$FOCUS_WINS" | grep -qx "${active:-__none__}"
+}
+
+# Exit 0 when the captured Claude tab is still the one on screen. Adds a title
+# comparison on top of focus_window_focused, so it only makes sense when time
+# has passed since focus_capture — ask.sh --delay is the one caller.
 # Errs towards "focused" so an undetectable setup keeps the inline flow.
 focus_terminal_focused() {
     focus_has_display || return 0

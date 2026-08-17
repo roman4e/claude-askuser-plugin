@@ -12,6 +12,8 @@
 .
 ├── .claude-plugin/
 │   └── plugin.json              # маніфест плагіна
+├── commands/
+│   └── sysnotif.md              # /sysnotif enable|disable|status
 ├── hooks/
 │   ├── hooks.json               # реєстрація PreToolUse + SessionStart хуків
 │   ├── pre-tool-notify.sh       # PreToolUse: Allow/Block попап
@@ -21,7 +23,8 @@
 │   ├── ui.sh                    # бекенди діалогів: notify (D-Bus) та zenity
 │   └── focus.sh                 # детекція фокусу вкладки термінала
 ├── scripts/
-│   └── ask.sh                   # діалог вибору (notify/zenity або fallback)
+│   ├── ask.sh                   # діалог вибору (notify/zenity або fallback)
+│   └── sysnotif.sh              # перемикач ASK_USER_ENABLED
 ├── skills/
 │   └── choice-dialog/
 │       └── SKILL.md             # інструкція для Claude як викликати ask.sh
@@ -86,10 +89,30 @@ PreToolUse-хук **живе всередині плагіна** (`hooks/hooks.j
 
 | Ключ | Дефолт | Що робить |
 |------|--------|-----------|
+| `ASK_USER_ENABLED` | `1` | Головний вимикач, ним керує `/sysnotif` |
+| `ASK_USER_REMOTE_BYPASS` | `1` | Не показувати діалоги, коли сесією керують з іншого пристрою |
 | `ASK_USER_UI` | `notify` | Бекенд: `notify` (сповіщення з кнопками) або `zenity` (вікно) |
 | `ASK_USER_TIMEOUT` | `300` | Скільки секунд чекати відповідь; `0` — чекати вічно |
 | `ASK_USER_BTN_PAD` | `6` | Скільки em-пробілів додати з кожного боку номера на кнопці |
 | `ASK_USER_MAX_LABEL` | `10` | Найдовший текст опції, який ще пишеться прямо на кнопці |
+
+### Вимкнення на льоту
+
+```
+/sysnotif disable     # діалоги більше не спливають
+/sysnotif enable
+/sysnotif status      # стан + чому діалог може не з'являтись
+```
+
+Команда пише `ASK_USER_ENABLED` у конфіг, а хук і `ask.sh` читають його при кожному виклику — діє одразу в запущених сесіях, рестарт не потрібен. У вимкненому стані permission-промпти лишаються у вбудованому UI Claude Code, а питання йдуть через `AskUserQuestion`.
+
+`/sysnotif status` окремо корисний, коли діалоги не з'являються попри `ON` — він назве причину: bridged-сесія, відсутній `$DISPLAY`, немає `gdbus`/`zenity`/`xdotool`.
+
+### Коли діалог не вдалося показати
+
+Хук ніколи не блокує інструмент через те, що не зміг спитати. Блокування настає **лише** коли користувач явно натиснув `Block`. Закрите сповіщення, вичерпаний таймаут, непрацездатний бекенд — усе це означає «спитати не вийшло», і хук мовчки відступає, віддаючи рішення штатному промпту Claude Code.
+
+Це важливо: заблокований екран або режим «не турбувати» закриває сповіщення миттєво, і трактування цього як `Block` робить машину непридатною — кожен виклик `Bash`/`Edit`/`Write` відхиляється, і полагодити плагін уже нічим.
 
 ### Як виглядають кнопки
 
@@ -148,7 +171,8 @@ fi
 
 | Умова | Метод |
 |-------|-------|
-| **Remote Control активний** (`CLAUDE_CODE_REMOTE` truthy або `CLAUDE_CODE_REMOTE_SESSION_ID` встановлений) | Fallback: `__USE_ASK_USER_QUESTION__` — питання передається на віддалений пристрій нативно |
+| `ASK_USER_ENABLED=0` (`/sysnotif disable`) | Fallback: `__USE_ASK_USER_QUESTION__` |
+| **Remote Control активний** (див. нижче) | Fallback: `__USE_ASK_USER_QUESTION__` — питання передається на віддалений пристрій нативно |
 | Немає `$DISPLAY` | Fallback: `__USE_ASK_USER_QUESTION__` |
 | Дисплей є, термінал у фокусі | Fallback: `__USE_ASK_USER_QUESTION__` |
 | Дисплей є, термінал НЕ у фокусі | Сповіщення з кнопками (або вікно `zenity`, залежно від `ASK_USER_UI`) |
@@ -161,10 +185,13 @@ fi
 - `scripts/ask.sh` одразу повертає `__USE_ASK_USER_QUESTION__` — Claude викликає вбудований `AskUserQuestion`, який Claude Code сам доставляє на віддалений пристрій.
 - `pre-tool-notify.sh` виходить з `exit 0` — Claude використовує стандартний permission-flow, який також системно передається на пристрій.
 
-Детекція через env vars що Claude Code експортує у дочірні процеси:
+Детекція через env vars, які Claude Code експортує у дочірні процеси:
 
-- `CLAUDE_CODE_REMOTE` — truthy значення (`1`, `true`, `yes`, `on`)
-- `CLAUDE_CODE_REMOTE_SESSION_ID` — будь-яке непорожнє значення
+- `CLAUDE_CODE_BRIDGE_SESSION_ID` — непорожнє значення; це те, що Claude Code 2.1 реально виставляє для bridged-сесії
+- `CLAUDE_CODE_REMOTE` — truthy значення (`1`, `true`, `yes`, `on`), для старіших збірок
+- `CLAUDE_CODE_REMOTE_SESSION_ID` — непорожнє значення; у бінарнику 2.1 такої змінної немає, лишена на випадок інших збірок
+
+Перевірити, що бачить плагін: `/sysnotif status`. Якщо якась збірка позначає звичайні локальні сесії як bridged, вимкни детекцію через `ASK_USER_REMOTE_BYPASS=0`.
 
 Для детекції правильного вікна термінала скрипт іде вверх по `/proc` від свого PID, шукає процес термінального емулятора (gnome-terminal, konsole, alacritty, kitty, wezterm, tilix, terminator, foot, rxvt, xterm), потім через `xdotool search --pid` отримує його X-вікна. Це коректно працює навіть коли користувач вже у іншій програмі на момент старту скрипта.
 

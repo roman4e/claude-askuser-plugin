@@ -157,16 +157,64 @@ if ui_choose "t" "q" "${OPTS_LONG[@]}"; then rc=0; else rc=1; fi
 check "choose reports no answer" "1 " "$rc $UI_ANSWER"
 
 STUB_KEY="allow"
-if ui_confirm "t" "Bash: ls"; then rc=0; else rc=1; fi
+rc=0; ui_confirm "t" "Bash: ls" || rc=$?
 check "confirm allow" "0" "$rc"
 
 STUB_KEY="block"
-if ui_confirm "t" "Bash: ls"; then rc=0; else rc=1; fi
+rc=0; ui_confirm "t" "Bash: ls" || rc=$?
 check "confirm block" "1" "$rc"
 
+# The dialog never reached the user. This must NOT read as a denial — see the
+# comment on ui_confirm.
 STUB_KEY=""
-if ui_confirm "t" "Bash: ls"; then rc=0; else rc=1; fi
-check "confirm dismissed blocks" "1" "$rc"
+rc=0; ui_confirm "t" "Bash: ls" || rc=$?
+check "confirm no answer is not a block" "2" "$rc"
+
+STUB_KEY="something-else"
+rc=0; ui_confirm "t" "Bash: ls" || rc=$?
+check "confirm unknown key is not a block" "2" "$rc"
+
+# ── off switch and remote detection ───────────────────────────────────────────
+CONF2=$(mktemp)
+export ASK_USER_CONF="$CONF2"
+
+printf 'ASK_USER_ENABLED=0\n' > "$CONF2"
+if cfg_disabled; then rc=0; else rc=1; fi
+check "cfg_disabled honours 0" "0" "$rc"
+
+printf 'ASK_USER_ENABLED=off\n' > "$CONF2"
+if cfg_disabled; then rc=0; else rc=1; fi
+check "cfg_disabled honours off" "0" "$rc"
+
+printf 'ASK_USER_ENABLED=1\n' > "$CONF2"
+if cfg_disabled; then rc=0; else rc=1; fi
+check "cfg_disabled false when on" "1" "$rc"
+
+: > "$CONF2"
+if cfg_disabled; then rc=0; else rc=1; fi
+check "cfg_disabled defaults to enabled" "1" "$rc"
+
+# The test process itself may be running inside a bridged session, so every
+# case below clears all three variables and sets only the one under test.
+CLEAR="CLAUDE_CODE_REMOTE= CLAUDE_CODE_REMOTE_SESSION_ID= CLAUDE_CODE_BRIDGE_SESSION_ID="
+remote_reason() { env $CLEAR "$@" bash -c ". '$ROOT/lib/config.sh'; cfg_remote_reason || true"; }
+
+check "remote: bridge id detected" "CLAUDE_CODE_BRIDGE_SESSION_ID" \
+    "$(remote_reason CLAUDE_CODE_BRIDGE_SESSION_ID=session_x)"
+check "remote: legacy session id detected" "CLAUDE_CODE_REMOTE_SESSION_ID" \
+    "$(remote_reason CLAUDE_CODE_REMOTE_SESSION_ID=abc)"
+check "remote: legacy flag detected" "CLAUDE_CODE_REMOTE" \
+    "$(remote_reason CLAUDE_CODE_REMOTE=1)"
+check "remote: falsy legacy flag ignored" "" \
+    "$(remote_reason CLAUDE_CODE_REMOTE=0)"
+check "remote: nothing set" "" "$(remote_reason)"
+
+printf 'ASK_USER_REMOTE_BYPASS=0\n' > "$CONF2"
+check "remote: bypass can be switched off" "" \
+    "$(remote_reason CLAUDE_CODE_BRIDGE_SESSION_ID=session_x)"
+
+rm -f "$CONF2"
+unset ASK_USER_CONF
 
 # ── summary ───────────────────────────────────────────────────────────────────
 printf '\n%d passed, %d failed\n' "$PASS" "$FAIL"

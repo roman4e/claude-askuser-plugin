@@ -34,19 +34,12 @@ fallback_inline() {
     exit 0
 }
 
-# ── Remote Control bypass ─────────────────────────────────────────────────────
-# When Claude Code runs in Remote Control mode the question must be delivered to
-# the user's remote device (phone/desktop) via the native AskUserQuestion path.
-# Do NOT pop a local dialog — the user is not at this machine.
-_is_truthy() {
-    case "${1:-}" in
-        1|true|TRUE|True|yes|YES|on|ON) return 0 ;;
-        *) return 1 ;;
-    esac
-}
-if _is_truthy "${CLAUDE_CODE_REMOTE:-}" || [ -n "${CLAUDE_CODE_REMOTE_SESSION_ID:-}" ]; then
-    fallback_inline
-fi
+# ── Off switch and Remote Control bypass ──────────────────────────────────────
+# Switched off via /sysnotif, or the session is driven from another device: in
+# both cases a dialog on this desktop is wrong, so the question goes inline and
+# Claude Code delivers it through AskUserQuestion.
+cfg_disabled && fallback_inline
+cfg_is_remote && fallback_inline
 
 # ── Ensure xdotool ────────────────────────────────────────────────────────────
 if ! command -v xdotool &>/dev/null; then

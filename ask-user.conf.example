@@ -3,6 +3,16 @@
 # Every key can also be set as an environment variable, which wins over
 # this file. The file is grep-parsed, never sourced.
 
+# Master switch, flipped by /sysnotif enable|disable. When off, permission
+# prompts stay in Claude Code's terminal UI and questions go through
+# AskUserQuestion. Read on every call, so it applies to running sessions.
+ASK_USER_ENABLED=1
+
+# Skip the desktop dialogs when the session is driven from another device
+# (Remote Control). Set to 0 only if a Claude Code build turns out to mark
+# ordinary local sessions as bridged — /sysnotif status will tell you.
+ASK_USER_REMOTE_BYPASS=1
+
 # Dialog backend: notify (desktop notification with buttons) or zenity (window).
 # notify silently degrades to zenity when the notification daemon cannot show
 # action buttons.
